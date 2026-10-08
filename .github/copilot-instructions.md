@@ -1,0 +1,1 @@
+Follow [the project's agent guidelines](../AGENTS.md). In this repository, focus on small, testable changes. Before proposing code, inspect OpenDeck plugin manifest and the Hyprland dispatcher. Do not assert SOOMFON support without physical-device confirmation. Prefer pull requests over direct main branch changes.

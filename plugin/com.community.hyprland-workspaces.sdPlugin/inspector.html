@@ -1,0 +1,20 @@
+<!doctype html><html><head><meta charset="utf-8"><style>body{font:14px sans-serif;color:#ddd;background:#222;padding:16px}input{width:95%;margin:8px 0;padding:8px;background:#333;color:white;border:1px solid #777}</style></head><body>
+<label>Workspace number<input id="workspace" type="number" min="1" max="999" value="1"></label><label>Button label<input id="label" type="text" placeholder="WS 1"></label>
+<script>
+let ws,context,settings={};
+function connectElgatoStreamDeckSocket(port,uuid,event,info,actionInfo){
+  context=JSON.parse(actionInfo).context;
+  settings=JSON.parse(actionInfo).payload?.settings||{};
+  document.getElementById('workspace').value=settings.workspace||1;
+  document.getElementById('label').value=settings.label||'';
+  ws=new WebSocket('ws://127.0.0.1:'+port);
+  ws.onopen=()=>ws.send(JSON.stringify({event,uuid}));
+}
+for(const id of ['workspace','label'])document.getElementById(id).addEventListener('change',()=>{
+ if(!ws||ws.readyState!==WebSocket.OPEN)return;
+ const workspace=Number(document.getElementById('workspace').value);
+ if(!Number.isInteger(workspace)||workspace<1||workspace>999)return;
+ settings={workspace:String(workspace),label:document.getElementById('label').value};
+ ws.send(JSON.stringify({event:'setSettings',context,payload:settings}));
+});
+</script></body></html>

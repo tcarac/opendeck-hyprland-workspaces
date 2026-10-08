@@ -1,0 +1,11 @@
+name: Feature request
+description: Suggest a feature or hardware compatibility improvement
+labels: [enhancement]
+body:
+  - type: textarea
+    id: scenario
+    attributes:
+      label: Use case
+      description: Explain the user benefit and desired behavior.
+    validations:
+      required: true

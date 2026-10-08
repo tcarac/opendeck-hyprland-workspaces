@@ -1,0 +1,23 @@
+{
+  "Name": "Hyprland Workspaces",
+  "Description": "Switch Hyprland workspaces with automatic active-workspace white border",
+  "Author": "Community",
+  "Version": "0.1.0",
+  "Category": "Window Management",
+  "CategoryIcon": "icon",
+  "Icon": "icon",
+  "CodePath": "plugin.js",
+  "URL": "https://github.com/",
+  "OS": [{"Platform":"linux","MinimumVersion":"5.15"}],
+  "Software": {"MinimumVersion":"6.0"},
+  "SDKVersion": 2,
+  "Actions": [{
+    "UUID": "com.community.hyprland-workspaces.switch",
+    "Name": "Switch Workspace",
+    "Tooltip": "Switch to a Hyprland workspace and display an active border",
+    "Icon": "icon",
+    "PropertyInspectorPath": "inspector.html",
+    "Controllers": ["Keypad"],
+    "States": [{"Image":"icon","TitleAlignment":"bottom"}]
+  }]
+}
