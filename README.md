@@ -2,7 +2,7 @@
 
 An open-source **OpenDeck plugin** for Hyprland and Omarchy. Press a Stream Deck / compatible SOOMFON controller button to switch workspaces. The active workspace gets a **white border**, which also updates when you switch using keyboard shortcuts or other tools.
 
-> **Status:** v0.1.0 preview. Unit-tested, **not yet hardware-tested** on SOOMFON or OpenDeck. The images currently use built-in monitor/number artwork rather than importing your Omarchy `workspace-labels` glyphs. Contributions welcome.
+> **Status:** v0.2.0 preview. Workspace switching and the Omarchy workspace icon have been tested by the user on one SOOMFON/OpenDeck setup. Uploaded and path icons have automated coverage but still need a manual device check; compatibility with other devices is unverified.
 
 ## Features
 
@@ -11,6 +11,7 @@ An open-source **OpenDeck plugin** for Hyprland and Omarchy. Press a Stream Deck
 - Updates via Hyprland's `.socket2.sock` `workspacev2` events
 - Switching via `hyprctl dispatch 'hl.dsp.focus({ workspace = "8" })'` for Lua-dispatch Omarchy builds
 - Per-button workspace and label settings in OpenDeck's property inspector
+- Per-button icons from an uploaded image, an absolute raster image path, or the matching Omarchy workspace label; the plugin keeps the active white border
 - Reconnects to Hyprland IPC if the socket disconnects
 - No direct SOOMFON hardware access: depends on a working OpenDeck device adapter
 
@@ -25,7 +26,15 @@ bash scripts/install.sh
 
 For Flatpak OpenDeck, try `bash scripts/install.sh --flatpak` (Hyprland socket access from the Flatpak/plugin may need additional permissions).
 
-**Restart OpenDeck.** Add the **Switch Workspace** action from **Hyprland Workspaces** to the first three SOOMFON buttons. Configure them as workspaces **1**, **2**, and **3**. Do not overwrite the existing OpenDeck profile JSON by hand.
+Use **Restart** from OpenDeck's tray menu after installing. Closing the window may leave OpenDeck running in the background, without loading the new plugin. Expand **Hyprland Workspaces** in the action list and drag **Switch Workspace** onto an empty SOOMFON key. Configure test keys as workspaces **1**, **2**, and **3**. The first three keys in an existing profile may already be assigned; do not overwrite them or edit the profile JSON by hand.
+
+To set an icon, select a workspace button in OpenDeck and choose its **Icon source** in the property inspector:
+
+- **Choose an image file:** PNG, JPEG, WebP or SVG. The inspector stores a small PNG copy in that button's settings, so the source file can move afterward.
+- **Enter an image path:** An absolute path to a PNG, JPEG or WebP file. The plugin reads the file when it renders the button; SVG files can be uploaded instead.
+- **Omarchy workspace label:** Reads the icon for that workspace number from `~/.config/omarchy/shell.json` under `io.github.wbuf81.workspace-labels`. Literal Nerd Font glyphs and local app icons are supported. Changes to the Omarchy labels update the button automatically. Leave **Button label** blank to use the Omarchy name too.
+
+Choose **Built-in artwork** to return to the monitor icon. OpenDeck's separate **Edit image** control may override plugin image updates, so use the property inspector when you want the active border to keep updating.
 
 ## How it works
 
@@ -33,11 +42,10 @@ The plugin talks to OpenDeck over its plugin WebSocket. It runs `hyprctl` on key
 
 ## Limitations
 
-- Verified only by unit tests; actual OpenDeck plugin loading and device rendering need testing.
+- Uploaded and path icons are covered by automated rendering tests but still need a manual SOOMFON display check.
 - Uses `HYPRLAND_INSTANCE_SIGNATURE` inherited from OpenDeck. If OpenDeck was started outside the Hyprland session or in a restrictive sandbox, socket detection may fail.
 - The `hl.dsp.focus` dispatcher targets the user's reported Omarchy setup; stock Hyprland may require the legacy `workspace` dispatcher instead.
 - `workspacev2` events apply to focus changes; multi-monitor behavior may need refinement.
-- SVG/PNG images from your `workspace-labels` plugin are **not** automatically imported yet.
 - OpenDeck software compatibility varies across versions. If the inspector does not save settings or the plugin fails to load, see OpenDeck plugin logs.
 
 ## Development

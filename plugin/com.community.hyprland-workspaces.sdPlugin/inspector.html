@@ -1,20 +1,72 @@
-<!doctype html><html><head><meta charset="utf-8"><style>body{font:14px sans-serif;color:#ddd;background:#222;padding:16px}input{width:95%;margin:8px 0;padding:8px;background:#333;color:white;border:1px solid #777}</style></head><body>
-<label>Workspace number<input id="workspace" type="number" min="1" max="999" value="1"></label><label>Button label<input id="label" type="text" placeholder="WS 1"></label>
+<!doctype html><html><head><meta charset="utf-8"><style>body{font:14px sans-serif;color:#ddd;background:#222;padding:16px}input,select{width:95%;margin:8px 0;padding:8px;background:#333;color:white;border:1px solid #777}button{margin:8px 0;padding:8px}#preview{display:block;width:64px;height:64px;object-fit:contain}#status{min-height:1.5em}[hidden]{display:none!important}</style></head><body>
+<label>Workspace number<input id="workspace" type="number" min="1" max="999" value="1"></label><label>Button label<input id="label" type="text" placeholder="Blank uses the Omarchy name"></label>
+<label>Icon source<select id="mode"><option value="default">Built-in artwork</option><option value="upload">Choose an image file</option><option value="path">Enter an image path</option><option value="omarchy">Omarchy workspace label</option></select></label>
+<div id="upload" hidden><label>PNG, JPEG, WebP or SVG<input id="icon" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"></label><img id="preview" alt="Selected workspace icon" hidden><button id="clear" type="button">Remove uploaded icon</button></div>
+<div id="path-section" hidden><label>Absolute path to PNG, JPEG or WebP<input id="iconPath" type="text" placeholder="/home/you/Pictures/workspace.png"></label></div>
+<p id="omarchy" hidden>Uses this workspace's icon from ~/.config/omarchy/shell.json. Literal Nerd Font glyphs and local app icons are supported.</p>
+<div id="status" role="status"></div>
 <script>
 let ws,context,settings={};
+const $=id=>document.getElementById(id);
+function showIcon(){
+  const icon=typeof settings.icon==='string'&&settings.icon.length<180050&&/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(settings.icon)?settings.icon:'';
+  $('preview').hidden=!icon;
+  if(icon)$('preview').src=icon;
+  else $('preview').removeAttribute('src');
+}
+function showMode(){
+  const mode=$('mode').value;
+  $('upload').hidden=mode!=='upload';
+  $('path-section').hidden=mode!=='path';
+  $('omarchy').hidden=mode!=='omarchy';
+  showIcon();
+}
+function saveSettings(){
+  const workspace=Number($('workspace').value);
+  if(!Number.isInteger(workspace)||workspace<1||workspace>999){$('status').textContent='Choose a workspace from 1 to 999.';return;}
+  if(!ws||ws.readyState!==WebSocket.OPEN){$('status').textContent='OpenDeck is not connected.';return;}
+  settings={...settings,workspace:String(workspace),label:$('label').value,iconMode:$('mode').value,iconPath:$('iconPath').value.trim()};
+  ws.send(JSON.stringify({event:'setSettings',context,payload:settings}));
+  $('status').textContent='Saved.';
+}
 function connectElgatoStreamDeckSocket(port,uuid,event,info,actionInfo){
   context=JSON.parse(actionInfo).context;
   settings=JSON.parse(actionInfo).payload?.settings||{};
-  document.getElementById('workspace').value=settings.workspace||1;
-  document.getElementById('label').value=settings.label||'';
+  $('workspace').value=settings.workspace||1;
+  $('label').value=settings.label||'';
+  $('mode').value=['default','upload','path','omarchy'].includes(settings.iconMode)?settings.iconMode:(settings.icon?'upload':'default');
+  $('iconPath').value=settings.iconPath||'';
+  showMode();
   ws=new WebSocket('ws://127.0.0.1:'+port);
   ws.onopen=()=>ws.send(JSON.stringify({event,uuid}));
 }
-for(const id of ['workspace','label'])document.getElementById(id).addEventListener('change',()=>{
- if(!ws||ws.readyState!==WebSocket.OPEN)return;
- const workspace=Number(document.getElementById('workspace').value);
- if(!Number.isInteger(workspace)||workspace<1||workspace>999)return;
- settings={workspace:String(workspace),label:document.getElementById('label').value};
- ws.send(JSON.stringify({event:'setSettings',context,payload:settings}));
+for(const id of ['workspace','label'])$(id).addEventListener('change',saveSettings);
+$('mode').addEventListener('change',()=>{showMode();saveSettings();});
+$('iconPath').addEventListener('change',saveSettings);
+$('clear').addEventListener('click',()=>{settings={...settings,icon:''};$('icon').value='';showIcon();saveSettings();});
+$('icon').addEventListener('change',()=>{
+ const file=$('icon').files[0];
+ if(!file)return;
+ if(!['image/png','image/jpeg','image/webp','image/svg+xml'].includes(file.type)||file.size>2097152){$('status').textContent='Choose a PNG, JPEG, WebP or SVG under 2 MB.';return;}
+ const reader=new FileReader();
+ reader.onerror=()=>$('status').textContent='Could not read the icon.';
+ reader.onload=()=>{
+  const image=new Image();
+  image.onerror=()=>$('status').textContent='Could not decode the icon.';
+  image.onload=()=>{
+   if(!image.width||!image.height){$('status').textContent='The icon has no visible size.';return;}
+   const canvas=document.createElement('canvas');canvas.width=96;canvas.height=80;
+   const scale=Math.min(96/image.width,80/image.height);
+   const width=image.width*scale,height=image.height*scale;
+   try{
+    canvas.getContext('2d').drawImage(image,(96-width)/2,(80-height)/2,width,height);
+    const icon=canvas.toDataURL('image/png');
+    if(icon.length>180000){$('status').textContent='The icon is too large after conversion.';return;}
+    settings={...settings,icon};showIcon();saveSettings();
+   }catch(error){$('status').textContent='Could not convert the icon. Try a PNG file.';}
+  };
+  image.src=reader.result;
+ };
+ reader.readAsDataURL(file);
 });
 </script></body></html>

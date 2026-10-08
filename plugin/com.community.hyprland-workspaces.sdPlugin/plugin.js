@@ -5,7 +5,8 @@ const sharp = require('sharp');
 const { execFile, spawn } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
-const { parseWorkspace, workspaceFromEvent, buttonSvg } = require('./workspace');
+const { parseWorkspace, parseActiveWorkspace, workspaceFromEvent, buttonSvg } = require('./workspace');
+const { iconForSettings, omarchyConfig } = require('./icons');
 const pluginDir = __dirname;
 const args = Object.fromEntries(process.argv.slice(2).reduce((out, val, index, arr) => {
   if (val.startsWith('-')) out.push([val, arr[index + 1]]);
@@ -18,6 +19,8 @@ if (!port || !args['-pluginUUID'] || !args['-registerEvent']) {
 }
 const ws = new WebSocket(`ws://127.0.0.1:${port}`);
 const instances = new Map();
+const latestRender = new Map();
+let renderId = 0;
 let activeWorkspace = null;
 let monitorProcess;
 let reconnectDelay = 1000;
@@ -26,7 +29,10 @@ function send(message) { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stri
 function queryWorkspace() {
   execFile('hyprctl', ['-j', 'activeworkspace'], {timeout:3000}, (err, stdout) => {
     if (err) return console.error('Cannot query Hyprland workspace:', err.message);
-    try { updateActive(String(JSON.parse(stdout).id)); } catch (e) { console.error(e.message); }
+    try {
+      const id = parseActiveWorkspace(JSON.parse(stdout).id);
+      if (id !== null) updateActive(id);
+    } catch (e) { console.error(e.message); }
   });
 }
 function updateActive(id) {
@@ -35,10 +41,19 @@ function updateActive(id) {
   renderAll();
 }
 async function render(context, settings) {
+  const id = ++renderId;
+  latestRender.set(context, id);
   const workspace = parseWorkspace(settings.workspace);
   const isActive = String(workspace) === activeWorkspace;
-  const svg = buttonSvg(workspace, isActive, settings.label);
-  const png = await sharp(Buffer.from(svg)).png().toBuffer();
+  const {icon, label} = await iconForSettings(settings, workspace);
+  const svg = buttonSvg(workspace, isActive, settings.label || label, icon);
+  let png;
+  try { png = await sharp(Buffer.from(svg)).png().toBuffer(); }
+  catch (error) {
+    if (!icon) throw error;
+    png = await sharp(Buffer.from(buttonSvg(workspace, isActive, settings.label || label))).png().toBuffer();
+  }
+  if (latestRender.get(context) !== id) return;
   send({event:'setImage',context,payload:{image:`data:image/png;base64,${png.toString('base64')}`,target:0}});
 }
 function renderAll() {
@@ -75,7 +90,7 @@ function handleMessage(msg){
     instances.set(ctx,settings);
     render(ctx,settings).catch(console.error);
     if (activeWorkspace===null) queryWorkspace();
-  } else if (msg.event==='willDisappear') {instances.delete(ctx);}
+  } else if (msg.event==='willDisappear') {instances.delete(ctx);latestRender.delete(ctx);}
   else if (msg.event==='keyDown') {
     const settings={...(instances.get(ctx)||{}),...(msg.payload?.settings||{})};
     const workspace=parseWorkspace(settings.workspace);
@@ -88,7 +103,8 @@ function handleMessage(msg){
 ws.on('open',()=>{
   send({event:args['-registerEvent'],uuid:args['-pluginUUID']});
   startMonitor();queryWorkspace();
+  fs.watchFile(omarchyConfig,{interval:2000},renderAll);
 });
 ws.on('message',raw=>{try{handleMessage(JSON.parse(raw.toString()));}catch(e){console.error(e);}});
-ws.on('close',()=>{stopped=true;monitorProcess?.destroy();});
+ws.on('close',()=>{stopped=true;monitorProcess?.destroy();fs.unwatchFile(omarchyConfig,renderAll);});
 ws.on('error',err=>console.error('OpenDeck WebSocket:',err.message));

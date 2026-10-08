@@ -2,7 +2,7 @@
   "Name": "Hyprland Workspaces",
   "Description": "Switch Hyprland workspaces with automatic active-workspace white border",
   "Author": "Community",
-  "Version": "0.1.0",
+  "Version": "0.2.0",
   "Category": "Window Management",
   "CategoryIcon": "icon",
   "Icon": "icon",
